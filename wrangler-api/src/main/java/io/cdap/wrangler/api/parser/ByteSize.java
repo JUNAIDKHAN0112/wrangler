@@ -40,7 +40,6 @@ public class ByteSize implements Token {
             throw new IllegalArgumentException("Invalid byte size: " + value);
         }
     }
-
     public long getBytes() {
         return bytes;
     }
