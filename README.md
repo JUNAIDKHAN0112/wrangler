@@ -1,64 +1,91 @@
-Wrangler is an interactive tool for data cleansing and transformation.
+---
 
-It provides the following capabilities:
+### 🚀 New Feature: Byte Size & Time Duration Parsers with `aggregate-stats` Directive
 
-Transform and cleanse data using many pre-defined directives or transform functions.
-Cache and analyze results at each step to verify results.
-Create a reproducible transformation pipeline.
-Byte Size and Time Duration Parsers
-Wrangler has been enhanced with native support for parsing and utilizing byte size and time duration units within recipes. This allows users to easily handle units like Kilobytes (KB), Megabytes (MB), milliseconds (ms), or seconds (s) without requiring complex multi-step recipes.
+---
 
-Byte Size Parser
-The ByteSize parser supports the following units:
+#### 📌 Overview
 
-B (Bytes)
-KB (Kilobytes, 1 KB = 1024 B)
-MB (Megabytes, 1 MB = 1024 KB)
-GB (Gigabytes, 1 GB = 1024 MB)
-TB (Terabytes, 1 TB = 1024 GB)
-PB (Petabytes, 1 PB = 1024 TB)
-Example byte size values:
+This enhancement adds native support in Wrangler for:
 
-10B
-1.5KB
-2MB
-3.5GB
-Time Duration Parser
-The TimeDuration parser supports the following units:
+- 📦 **Byte Sizes** like `10KB`, `1.5MB`, `2GB`
+- ⏱ **Time Durations** like `150ms`, `2s`, `1min`
 
-ns (nanoseconds)
-ms (milliseconds, 1 ms = 1,000,000 ns)
-s (seconds, 1 s = 1,000 ms)
-m (minutes, 1 m = 60 s)
-h (hours, 1 h = 60 m)
-d (days, 1 d = 24 h)
-Example time duration values:
+It also introduces a new directive:
 
-100ns
-1.5ms
-2s
-3.5m
-1h
-0.5d
-New Aggregate-Stats Directive
-The aggregate-stats directive utilizes these new parsers to perform aggregation on columns containing byte sizes and time durations.
+> `aggregate-stats` — to compute aggregated values (like total size or total time) effortlessly in transformation recipes.
 
-Syntax:
+---
 
-aggregate-stats :<source-size-column> :<source-time-column> :<target-size-column> :<target-time-column> [<size-unit> <time-unit>]
-Parameters:
+#### 🛠️ Implementation Summary
 
-source-size-column: Column containing byte size values (e.g., "10KB", "5MB")
-source-time-column: Column containing time duration values (e.g., "100ms", "2s")
-target-size-column: Output column name for the aggregated size value
-target-time-column: Output column name for the aggregated time value
-size-unit (optional): Output unit for size (B, KB, MB, GB, TB, PB), defaults to MB
-time-unit (optional): Output unit for time (ns, ms, s, m, h, d), defaults to s
-Examples:
+1. **✅ Grammar Changes** *(in `Directives.g4`)*
+   - Added lexer rules:
+     - `BYTE_SIZE`, `TIME_DURATION`
+   - Added helper fragments:
+     - `BYTE_UNIT`, `TIME_UNIT`
+   - Updated parser rules to recognize these tokens in directive arguments.
 
-# Basic usage with default output units (MB and seconds)
-aggregate-stats :data_transfer_size :response_time :total_size_mb :total_time_sec
+2. **✅ API Additions** *(in `wrangler-api`)*
+   - `ByteSize.java`: Parses inputs like `1.5MB`, `200KB` into bytes.
+   - `TimeDuration.java`: Parses inputs like `2s`, `150ms` into nanoseconds.
+   - Registered both in Wrangler’s token system:
+     ```java
+     TokenType.BYTE_SIZE
+     TokenType.TIME_DURATION
+     ```
 
-# Specify output units (gigabytes and minutes)
-aggregate-stats :data_transfer_size :response_time :total_size :total_time GB m
-This directive works as an aggregator, processing multiple input rows and producing a single output row with the total size and time values converted to the specified units.
+3. **✅ Core Parser Updates** *(in `wrangler-core`)*
+   - Implemented:
+     - `visitByteSizeArg`
+     - `visitTimeDurationArg`
+   - Extracted values using `ctx.getText()` and added to `TokenGroup`.
+
+4. **✅ New Directive: `aggregate-stats`**
+
+   **Syntax:**
+   ```text
+   aggregate-stats :<byte_column> :<time_column> <output_byte_column> <output_time_column>
+Arguments:
+
+:byte_column: Input column with byte size values (e.g. data_transfer_size)
+
+:time_column: Input column with time duration values (e.g. response_time)
+
+:output_byte_column: Output column for aggregated byte size
+
+:output_time_column: Output column for aggregated time
+
+✅ Sample Recipe Usage
+JAVA
+String[] recipe = new String[] {
+  "aggregate-stats :data_transfer_size :response_time total_size_mb total_time_sec"
+};
+
+🧪 Sample Input
+data_transfer_size                    	response_time
+1.5MB	                                    200ms
+2MB	                                      300ms
+512KB	                                    100ms
+
+🎯 Expected Output
+total_size_mb	                         total_time_sec
+4.00	                                    0.60
+
+✅ Testing Highlights
+
+✔️ Unit tests for ByteSize and TimeDuration classes
+
+✔️ Grammar parser tests for valid and invalid tokens
+
+✔️ Directive-level unit tests using TestingRig.execute(recipe, rows)
+
+✔️ Output assertions via Assert.assertEquals() with tolerance for precision
+
+💡 Future Enhancements
+
+📏 Output unit customization (e.g., MB → GB, ms → minutes)
+
+📊 Support for statistical aggregations: average, p95, p99
+
+
