@@ -85,6 +85,7 @@ public class AggregateStatsDirective implements Directive {
         double totalMB = totalBytes / (1024.0 * 1024.0);
         double totalSeconds = totalMillis / 1000.0;
 
+
         Row result = new Row();
         result.add(targetSizeCol, totalMB);
         result.add(targetTimeCol, totalSeconds);
